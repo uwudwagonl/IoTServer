@@ -28,6 +28,7 @@ interface MqttContextValue {
   bucketCounts: Record<number, number>;
   subscribe: (topic: string) => void;
   publish: (topic: string, message: string) => void;
+  publishRetained: (topic: string, message: string) => void;
   clearMessages: () => void;
   clearTopic: (topic: string) => void;
   clearAllTopics: () => void;
@@ -43,6 +44,7 @@ const MqttContext = createContext<MqttContextValue>({
   bucketCounts: {},
   subscribe: () => {},
   publish: () => {},
+  publishRetained: () => {},
   clearMessages: () => {},
   clearTopic: () => {},
   clearAllTopics: () => {},
@@ -113,6 +115,10 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     clientRef.current?.publish(topic, message);
   }, []);
 
+  const publishRetained = useCallback((topic: string, message: string) => {
+    clientRef.current?.publish(topic, message, { retain: true, qos: 0 });
+  }, []);
+
   const clearMessages = useCallback(() => setMessages([]), []);
   const clearBuckets = useCallback(() => setBucketCounts({}), []);
   const clearAllTopics = useCallback(() => setTopicData({}), []);
@@ -141,6 +147,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         bucketCounts,
         subscribe,
         publish,
+        publishRetained,
         clearMessages,
         clearTopic,
         clearAllTopics,

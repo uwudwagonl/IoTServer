@@ -19,14 +19,47 @@ function absurdFor(topic: string): string {
   return `corrupted-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export default function ChaosPanel() {
-  const { topicData, publish, connected } = useMqtt();
+const PEX_IMG =
+  "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse4.mm.bing.net%2Fth%2Fid%2FOIP.H92fAbueZnieS3rOPewtSwHaHa%3Fpid%3DApi&f=1&ipt=c57f48239b8135a690623e381455d1848a42c6baab17960a0a02b5ec228d183c&ipo=images";
+
+const PEX_CAPTIONS = [
+  `pex has entered the chat → ${PEX_IMG}`,
+  `daily pex reminder ${PEX_IMG}`,
+  `look at this dude → ${PEX_IMG}`,
+  `he's here ${PEX_IMG}`,
+  `you have been visited by PEX. pex again in 60s for good luck ${PEX_IMG}`,
+  `🚨 PEX ALERT 🚨 ${PEX_IMG}`,
+  `skrrt skrrt ${PEX_IMG}`,
+  `404 sensor not found, found pex instead ${PEX_IMG}`,
+  `firmware update: PEX.bin installed ${PEX_IMG}`,
+  PEX_IMG,
+];
+
+const PEX_TOPICS_EXTRA = [
+  "pex/sightings",
+  "pex/live",
+  "pex/incoming",
+  "pex/broadcast",
+  "system/alert",
+  "admin/announce",
+  "devices/all/status",
+  "global/feed",
+  "banner/main",
+  "news/urgent",
+];
+
+function randomOf<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+export default function PexPanel() {
+  const { topicData, publish, publishRetained, connected } = useMqtt();
   const [running, setRunning] = useState<string | null>(null);
   const [customTopic, setCustomTopic] = useState("");
   const [customPayload, setCustomPayload] = useState("");
   const [customCount, setCustomCount] = useState(50);
   const [customInterval, setCustomInterval] = useState(100);
-  const [banner, setBanner] = useState("");
+  const [banner, setBanner] = useState(PEX_IMG);
   const stopRef = useRef<{ cancel: boolean }>({ cancel: false });
 
   const allTopics = Object.keys(topicData);
@@ -71,6 +104,39 @@ export default function ChaosPanel() {
       }
     });
 
+  const pexStorm = () =>
+    run("Pex storm", async () => {
+      const targets = [...allTopics, ...PEX_TOPICS_EXTRA];
+      if (targets.length === 0) targets.push("pex/live");
+      const end = Date.now() + 15_000;
+      while (Date.now() < end) {
+        if (stopRef.current.cancel) return;
+        publish(randomOf(targets), randomOf(PEX_CAPTIONS));
+        await sleep(80);
+      }
+    });
+
+  const pexEverywhere = () =>
+    run("Pex everywhere", async () => {
+      const targets = [...allTopics, ...PEX_TOPICS_EXTRA];
+      if (targets.length === 0) targets.push("pex/live");
+      for (const t of targets) {
+        if (stopRef.current.cancel) return;
+        publish(t, randomOf(PEX_CAPTIONS));
+        await sleep(60);
+      }
+    });
+
+  const pexRetained = () =>
+    run("Pex retained", async () => {
+      if (!confirm("Burn PEX into retained messages on every cached topic? (survives reconnects)")) return;
+      for (const t of allTopics) {
+        if (stopRef.current.cancel) return;
+        publishRetained(t, randomOf(PEX_CAPTIONS));
+        await sleep(40);
+      }
+    });
+
   const lightShow = () =>
     run("Light show", async () => {
       const lights = allTopics.filter((t) => t.toLowerCase().includes("light"));
@@ -102,7 +168,7 @@ export default function ChaosPanel() {
     <section className="rounded-xl border border-red-900/50 bg-red-950/10 p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-red-300">Chaos tools</h2>
+          <h2 className="text-lg font-semibold text-red-300">Pex tools</h2>
           <p className="text-xs text-gray-500">
             Publishes from this browser&apos;s MQTT session. Anyone subscribed sees it.
           </p>
@@ -118,19 +184,37 @@ export default function ChaosPanel() {
       </div>
 
       <div className="mb-4 grid gap-2 sm:grid-cols-3">
-        <ChaosBtn
+        <PexBtn
+          label="PEX STORM 🌩️"
+          desc="15s of pex captions raining across every topic"
+          onClick={pexStorm}
+          disabled={!connected || !!running}
+        />
+        <PexBtn
+          label="Pex everywhere"
+          desc="One pex caption into every cached + meme topic, once"
+          onClick={pexEverywhere}
+          disabled={!connected || !!running}
+        />
+        <PexBtn
+          label="Pex retained ☢️"
+          desc="Burn pex into retained messages (survives reconnects)"
+          onClick={pexRetained}
+          disabled={!connected || !!running || allTopics.length === 0}
+        />
+        <PexBtn
           label="Gaslight"
           desc={`Push absurd values to all ${allTopics.length} cached topics`}
           onClick={gaslight}
           disabled={!connected || !!running || allTopics.length === 0}
         />
-        <ChaosBtn
+        <PexBtn
           label="Flood 10s"
           desc="Spray nonsense at random topics at ~10/s"
           onClick={flood}
           disabled={!connected || !!running}
         />
-        <ChaosBtn
+        <PexBtn
           label="Light show"
           desc="Strobe every lights/* topic for 10s"
           onClick={lightShow}
@@ -209,7 +293,7 @@ export default function ChaosPanel() {
   );
 }
 
-function ChaosBtn({
+function PexBtn({
   label,
   desc,
   onClick,

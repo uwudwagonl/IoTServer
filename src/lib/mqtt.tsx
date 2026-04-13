@@ -17,11 +17,15 @@ export interface MqttMessage {
   timestamp: Date;
 }
 
+export const BUCKET_MS = 10_000;
+const BUCKET_RETAIN_MS = 6 * 60 * 60 * 1000;
+
 interface MqttContextValue {
   client: MqttClient | null;
   connected: boolean;
   messages: MqttMessage[];
   topicData: Record<string, MqttMessage>;
+  bucketCounts: Record<number, number>;
   subscribe: (topic: string) => void;
   publish: (topic: string, message: string) => void;
 }
@@ -31,6 +35,7 @@ const MqttContext = createContext<MqttContextValue>({
   connected: false,
   messages: [],
   topicData: {},
+  bucketCounts: {},
   subscribe: () => {},
   publish: () => {},
 });
@@ -45,6 +50,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<MqttMessage[]>([]);
   const [topicData, setTopicData] = useState<Record<string, MqttMessage>>({});
+  const [bucketCounts, setBucketCounts] = useState<Record<number, number>>({});
   const clientRef = useRef<MqttClient | null>(null);
   const msgIdRef = useRef(0);
 
@@ -72,6 +78,16 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       };
       setMessages((prev) => [msg, ...prev].slice(0, MAX_MESSAGES));
       setTopicData((prev) => ({ ...prev, [topic]: msg }));
+      setBucketCounts((prev) => {
+        const bucket = Math.floor(msg.timestamp.getTime() / BUCKET_MS) * BUCKET_MS;
+        const cutoff = Date.now() - BUCKET_RETAIN_MS;
+        const next: Record<number, number> = { [bucket]: (prev[bucket] || 0) + 1 };
+        for (const k in prev) {
+          const n = Number(k);
+          if (n >= cutoff && n !== bucket) next[n] = prev[n];
+        }
+        return next;
+      });
     });
 
     return () => {
@@ -94,6 +110,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         connected,
         messages,
         topicData,
+        bucketCounts,
         subscribe,
         publish,
       }}

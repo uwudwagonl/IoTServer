@@ -36,7 +36,8 @@ const MqttContext = createContext<MqttContextValue>({
 });
 
 const BROKER_URL =
-  process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "ws://130.61.140.154:9001";
+  process.env.NEXT_PUBLIC_MQTT_BROKER_URL ||
+  "wss://blues-brian-employee-episodes.trycloudflare.com";
 
 const MAX_MESSAGES = 200;
 

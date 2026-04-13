@@ -28,6 +28,11 @@ interface MqttContextValue {
   bucketCounts: Record<number, number>;
   subscribe: (topic: string) => void;
   publish: (topic: string, message: string) => void;
+  clearMessages: () => void;
+  clearTopic: (topic: string) => void;
+  clearAllTopics: () => void;
+  clearBuckets: () => void;
+  deleteRetained: (topic: string) => void;
 }
 
 const MqttContext = createContext<MqttContextValue>({
@@ -38,6 +43,11 @@ const MqttContext = createContext<MqttContextValue>({
   bucketCounts: {},
   subscribe: () => {},
   publish: () => {},
+  clearMessages: () => {},
+  clearTopic: () => {},
+  clearAllTopics: () => {},
+  clearBuckets: () => {},
+  deleteRetained: () => {},
 });
 
 const BROKER_URL =
@@ -103,6 +113,24 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     clientRef.current?.publish(topic, message);
   }, []);
 
+  const clearMessages = useCallback(() => setMessages([]), []);
+  const clearBuckets = useCallback(() => setBucketCounts({}), []);
+  const clearAllTopics = useCallback(() => setTopicData({}), []);
+  const clearTopic = useCallback((topic: string) => {
+    setTopicData((prev) => {
+      const { [topic]: _, ...rest } = prev;
+      return rest;
+    });
+    setMessages((prev) => prev.filter((m) => m.topic !== topic));
+  }, []);
+  const deleteRetained = useCallback((topic: string) => {
+    clientRef.current?.publish(topic, "", { retain: true, qos: 0 });
+    setTopicData((prev) => {
+      const { [topic]: _, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
   return (
     <MqttContext.Provider
       value={{
@@ -113,6 +141,11 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         bucketCounts,
         subscribe,
         publish,
+        clearMessages,
+        clearTopic,
+        clearAllTopics,
+        clearBuckets,
+        deleteRetained,
       }}
     >
       {children}

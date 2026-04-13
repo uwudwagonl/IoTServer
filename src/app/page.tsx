@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { MqttProvider } from "@/lib/mqtt";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import StatsBar from "@/components/StatsBar";
@@ -15,7 +16,12 @@ export default function Dashboard() {
         <header className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">IoT Dashboard</h1>
-            <p className="text-sm text-gray-500">4AHWII — Real-time MQTT Monitor</p>
+            <p className="text-sm text-gray-500">
+              4AHWII — Real-time MQTT Monitor ·{" "}
+              <Link href="/admin" className="text-blue-400 hover:underline">
+                admin
+              </Link>
+            </p>
           </div>
           <ConnectionStatus />
         </header>

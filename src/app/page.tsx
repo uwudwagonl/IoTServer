@@ -8,10 +8,12 @@ import MessageFeed from "@/components/MessageFeed";
 import TopicOverview from "@/components/TopicOverview";
 import MessageChart from "@/components/MessageChart";
 import PublishForm from "@/components/PublishForm";
+import PexOverlay from "@/components/PexOverlay";
 
 export default function Dashboard() {
   return (
     <MqttProvider>
+      <PexOverlay />
       <div className="mx-auto max-w-7xl px-4 py-6">
         <header className="mb-6 flex items-center justify-between">
           <div>

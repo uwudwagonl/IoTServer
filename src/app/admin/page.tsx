@@ -5,6 +5,7 @@ import { MqttProvider } from "@/lib/mqtt";
 import LoginGate from "@/components/LoginGate";
 import AdminPanel from "@/components/AdminPanel";
 import PexPanel from "@/components/PexPanel";
+import PexOverlay from "@/components/PexOverlay";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import StatsBar from "@/components/StatsBar";
 import MessageChart from "@/components/MessageChart";
@@ -13,6 +14,7 @@ export default function AdminPage() {
   return (
     <LoginGate>
       <MqttProvider>
+        <PexOverlay />
         <div className="mx-auto max-w-7xl px-4 py-6">
           <header className="mb-6 flex items-center justify-between">
             <div>

@@ -20,12 +20,21 @@ export interface MqttMessage {
 export const BUCKET_MS = 10_000;
 const BUCKET_RETAIN_MS = 6 * 60 * 60 * 1000;
 
+export const PEX_INVOKE_TOPIC = "pex/invoke";
+export interface PexEvent {
+  nonce: string;
+  count: number;
+  duration: number;
+  ts: number;
+}
+
 interface MqttContextValue {
   client: MqttClient | null;
   connected: boolean;
   messages: MqttMessage[];
   topicData: Record<string, MqttMessage>;
   bucketCounts: Record<number, number>;
+  pexEvent: PexEvent | null;
   subscribe: (topic: string) => void;
   publish: (topic: string, message: string) => void;
   publishRetained: (topic: string, message: string) => void;
@@ -42,6 +51,7 @@ const MqttContext = createContext<MqttContextValue>({
   messages: [],
   topicData: {},
   bucketCounts: {},
+  pexEvent: null,
   subscribe: () => {},
   publish: () => {},
   publishRetained: () => {},
@@ -63,6 +73,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<MqttMessage[]>([]);
   const [topicData, setTopicData] = useState<Record<string, MqttMessage>>({});
   const [bucketCounts, setBucketCounts] = useState<Record<number, number>>({});
+  const [pexEvent, setPexEvent] = useState<PexEvent | null>(null);
   const clientRef = useRef<MqttClient | null>(null);
   const msgIdRef = useRef(0);
 
@@ -82,10 +93,25 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     client.on("error", () => setConnected(false));
 
     client.on("message", (topic, payload) => {
+      const payloadStr = payload.toString();
+      if (topic === PEX_INVOKE_TOPIC) {
+        try {
+          const data = JSON.parse(payloadStr);
+          setPexEvent({
+            nonce: String(data.nonce ?? Date.now()),
+            count: Math.max(1, Math.min(400, Number(data.count) || 80)),
+            duration: Math.max(500, Math.min(30_000, Number(data.duration) || 5000)),
+            ts: Date.now(),
+          });
+        } catch {
+          setPexEvent({ nonce: String(Date.now()), count: 80, duration: 5000, ts: Date.now() });
+        }
+        return;
+      }
       const msg: MqttMessage = {
         id: ++msgIdRef.current,
         topic,
-        payload: payload.toString(),
+        payload: payloadStr,
         timestamp: new Date(),
       };
       setMessages((prev) => [msg, ...prev].slice(0, MAX_MESSAGES));
@@ -145,6 +171,7 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
         messages,
         topicData,
         bucketCounts,
+        pexEvent,
         subscribe,
         publish,
         publishRetained,

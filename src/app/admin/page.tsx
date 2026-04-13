@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MqttProvider } from "@/lib/mqtt";
 import LoginGate from "@/components/LoginGate";
 import AdminPanel from "@/components/AdminPanel";
+import ChaosPanel from "@/components/ChaosPanel";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import StatsBar from "@/components/StatsBar";
 import MessageChart from "@/components/MessageChart";
@@ -29,6 +30,7 @@ export default function AdminPage() {
           <div className="space-y-6">
             <StatsBar />
             <MessageChart />
+            <ChaosPanel />
             <AdminPanel />
           </div>
         </div>

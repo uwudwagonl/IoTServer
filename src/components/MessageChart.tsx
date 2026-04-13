@@ -20,9 +20,14 @@ interface DataPoint {
 export default function MessageChart() {
   const { messages } = useMqtt();
   const [chartData, setChartData] = useState<DataPoint[]>([]);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    // Bucket messages into 10-second windows for the chart
+    const t = setInterval(() => setTick((x) => x + 1), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
     const now = Date.now();
     const buckets: Record<string, number> = {};
 
@@ -55,7 +60,7 @@ export default function MessageChart() {
     setChartData(
       Object.entries(buckets).map(([time, count]) => ({ time, count }))
     );
-  }, [messages]);
+  }, [messages, tick]);
 
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">

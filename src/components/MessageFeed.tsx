@@ -12,9 +12,9 @@ export default function MessageFeed() {
         {messages.length === 0 ? (
           <p className="text-sm text-gray-500">Waiting for messages...</p>
         ) : (
-          messages.map((msg, i) => (
+          messages.map((msg) => (
             <div
-              key={`${msg.timestamp.getTime()}-${i}`}
+              key={msg.id}
               className="flex gap-2 rounded-md bg-gray-800/50 px-3 py-2 text-sm"
             >
               <span className="shrink-0 font-mono text-blue-400">

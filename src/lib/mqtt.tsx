@@ -11,6 +11,7 @@ import {
 import mqtt, { MqttClient } from "mqtt";
 
 export interface MqttMessage {
+  id: number;
   topic: string;
   payload: string;
   timestamp: Date;
@@ -36,8 +37,6 @@ const MqttContext = createContext<MqttContextValue>({
 
 const BROKER_URL =
   process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "ws://130.61.140.154:9001";
-const USERNAME = process.env.NEXT_PUBLIC_MQTT_USERNAME || "";
-const PASSWORD = process.env.NEXT_PUBLIC_MQTT_PASSWORD || "";
 
 const MAX_MESSAGES = 200;
 
@@ -46,27 +45,26 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<MqttMessage[]>([]);
   const [topicData, setTopicData] = useState<Record<string, MqttMessage>>({});
   const clientRef = useRef<MqttClient | null>(null);
+  const msgIdRef = useRef(0);
 
   useEffect(() => {
-    const options: mqtt.IClientOptions = {
+    const client = mqtt.connect(BROKER_URL, {
       keepalive: 60,
       clean: true,
       reconnectPeriod: 5000,
-    };
-    if (USERNAME) {
-      options.username = USERNAME;
-      options.password = PASSWORD;
-    }
-
-    const client = mqtt.connect(BROKER_URL, options);
+    });
     clientRef.current = client;
 
-    client.on("connect", () => setConnected(true));
+    client.on("connect", () => {
+      setConnected(true);
+      client.subscribe("#");
+    });
     client.on("close", () => setConnected(false));
     client.on("error", () => setConnected(false));
 
     client.on("message", (topic, payload) => {
       const msg: MqttMessage = {
+        id: ++msgIdRef.current,
         topic,
         payload: payload.toString(),
         timestamp: new Date(),
@@ -75,11 +73,8 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       setTopicData((prev) => ({ ...prev, [topic]: msg }));
     });
 
-    // Subscribe to all topics by default
-    client.subscribe("#");
-
     return () => {
-      client.end();
+      client.end(true);
     };
   }, []);
 

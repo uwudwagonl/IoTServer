@@ -6,6 +6,7 @@ import LoginGate from "@/components/LoginGate";
 import AdminPanel from "@/components/AdminPanel";
 import PexPanel from "@/components/PexPanel";
 import PexOverlay from "@/components/PexOverlay";
+import BrokerSwitcher from "@/components/BrokerSwitcher";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import StatsBar from "@/components/StatsBar";
 import MessageChart from "@/components/MessageChart";
@@ -26,7 +27,10 @@ export default function AdminPage() {
                 </Link>
               </p>
             </div>
-            <ConnectionStatus />
+            <div className="flex items-center gap-3">
+              <BrokerSwitcher />
+              <ConnectionStatus />
+            </div>
           </header>
 
           <div className="space-y-6">

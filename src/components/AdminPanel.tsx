@@ -14,6 +14,7 @@ export default function AdminPanel() {
     clearAllTopics,
     clearBuckets,
     deleteRetained,
+    brokerUrl,
   } = useMqtt();
   const [filter, setFilter] = useState("");
   const [topic, setTopic] = useState("");
@@ -30,10 +31,6 @@ export default function AdminPanel() {
   }, [messages, filter]);
 
   const topics = Object.keys(topicData).sort();
-
-  const brokerUrl =
-    process.env.NEXT_PUBLIC_MQTT_BROKER_URL ||
-    "wss://blues-brian-employee-episodes.trycloudflare.com";
 
   return (
     <div className="space-y-6">

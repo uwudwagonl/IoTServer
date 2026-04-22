@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MqttProvider } from "@/lib/mqtt";
+import BrokerSwitcher from "@/components/BrokerSwitcher";
 import ConnectionStatus from "@/components/ConnectionStatus";
 import StatsBar from "@/components/StatsBar";
 import MessageFeed from "@/components/MessageFeed";
@@ -25,7 +26,10 @@ export default function Dashboard() {
               </Link>
             </p>
           </div>
-          <ConnectionStatus />
+          <div className="flex items-center gap-3">
+            <BrokerSwitcher />
+            <ConnectionStatus />
+          </div>
         </header>
 
         <div className="space-y-6">

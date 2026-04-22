@@ -28,9 +28,61 @@ export interface PexEvent {
   ts: number;
 }
 
+export interface BrokerPreset {
+  label: string;
+  url: string;
+}
+
+// Built-in brokers. Pi (via Cloudflare tunnel) is the default because it works
+// from both Vercel and localhost; the LAN preset is faster for local dev but
+// only works when the browser is on the same LAN as the Pi.
+export const BROKER_PRESETS: BrokerPreset[] = [
+  {
+    label: "Raspberry Pi (tunnel)",
+    url: "wss://hosted-controllers-plus-texas.trycloudflare.com",
+  },
+  { label: "Raspberry Pi (LAN)", url: "ws://10.252.74.225:9001" },
+  {
+    label: "Cloudflare tunnel (Ubuntu)",
+    url: "wss://blues-brian-employee-episodes.trycloudflare.com",
+  },
+];
+
+export const DEFAULT_BROKER_URL =
+  process.env.NEXT_PUBLIC_MQTT_BROKER_URL || BROKER_PRESETS[0].url;
+
+const BROKER_LS_KEY = "mqtt.brokerUrl";
+const BROKER_CUSTOM_LS_KEY = "mqtt.brokerPresets.custom";
+
+export function loadCustomPresets(): BrokerPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(BROKER_CUSTOM_LS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (p): p is BrokerPreset =>
+        p && typeof p.label === "string" && typeof p.url === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomPresets(presets: BrokerPreset[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(BROKER_CUSTOM_LS_KEY, JSON.stringify(presets));
+}
+
 interface MqttContextValue {
   client: MqttClient | null;
   connected: boolean;
+  brokerUrl: string;
+  setBrokerUrl: (url: string) => void;
+  customPresets: BrokerPreset[];
+  addCustomPreset: (preset: BrokerPreset) => void;
+  removeCustomPreset: (url: string) => void;
   messages: MqttMessage[];
   topicData: Record<string, MqttMessage>;
   bucketCounts: Record<number, number>;
@@ -48,6 +100,11 @@ interface MqttContextValue {
 const MqttContext = createContext<MqttContextValue>({
   client: null,
   connected: false,
+  brokerUrl: DEFAULT_BROKER_URL,
+  setBrokerUrl: () => {},
+  customPresets: [],
+  addCustomPreset: () => {},
+  removeCustomPreset: () => {},
   messages: [],
   topicData: {},
   bucketCounts: {},
@@ -62,13 +119,11 @@ const MqttContext = createContext<MqttContextValue>({
   deleteRetained: () => {},
 });
 
-const BROKER_URL =
-  process.env.NEXT_PUBLIC_MQTT_BROKER_URL ||
-  "wss://blues-brian-employee-episodes.trycloudflare.com";
-
 const MAX_MESSAGES = 200;
 
 export function MqttProvider({ children }: { children: React.ReactNode }) {
+  const [brokerUrl, setBrokerUrlState] = useState<string>(DEFAULT_BROKER_URL);
+  const [customPresets, setCustomPresets] = useState<BrokerPreset[]>([]);
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState<MqttMessage[]>([]);
   const [topicData, setTopicData] = useState<Record<string, MqttMessage>>({});
@@ -77,8 +132,49 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   const clientRef = useRef<MqttClient | null>(null);
   const msgIdRef = useRef(0);
 
+  // Hydrate from localStorage on mount.
   useEffect(() => {
-    const client = mqtt.connect(BROKER_URL, {
+    try {
+      const stored = window.localStorage.getItem(BROKER_LS_KEY);
+      if (stored) setBrokerUrlState(stored);
+    } catch {}
+    setCustomPresets(loadCustomPresets());
+  }, []);
+
+  const setBrokerUrl = useCallback((url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    try {
+      window.localStorage.setItem(BROKER_LS_KEY, trimmed);
+    } catch {}
+    setBrokerUrlState(trimmed);
+  }, []);
+
+  const addCustomPreset = useCallback((preset: BrokerPreset) => {
+    setCustomPresets((prev) => {
+      const filtered = prev.filter((p) => p.url !== preset.url);
+      const next = [...filtered, preset];
+      saveCustomPresets(next);
+      return next;
+    });
+  }, []);
+
+  const removeCustomPreset = useCallback((url: string) => {
+    setCustomPresets((prev) => {
+      const next = prev.filter((p) => p.url !== url);
+      saveCustomPresets(next);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    // Reset per-broker state on reconnect to avoid stale cross-broker data.
+    setConnected(false);
+    setMessages([]);
+    setTopicData({});
+    setBucketCounts({});
+
+    const client = mqtt.connect(brokerUrl, {
       keepalive: 60,
       clean: true,
       reconnectPeriod: 5000,
@@ -130,8 +226,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       client.end(true);
+      if (clientRef.current === client) clientRef.current = null;
     };
-  }, []);
+  }, [brokerUrl]);
 
   const subscribe = useCallback((topic: string) => {
     clientRef.current?.subscribe(topic);
@@ -168,6 +265,11 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       value={{
         client: clientRef.current,
         connected,
+        brokerUrl,
+        setBrokerUrl,
+        customPresets,
+        addCustomPreset,
+        removeCustomPreset,
         messages,
         topicData,
         bucketCounts,

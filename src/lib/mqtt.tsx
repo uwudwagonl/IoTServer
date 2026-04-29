@@ -39,7 +39,7 @@ export interface BrokerPreset {
 export const BROKER_PRESETS: BrokerPreset[] = [
   {
     label: "Raspberry Pi (tunnel)",
-    url: "wss://hosted-controllers-plus-texas.trycloudflare.com",
+    url: "wss://things-defense-christina-lands.trycloudflare.com",
   },
   { label: "Raspberry Pi (LAN)", url: "ws://10.252.74.225:9001" },
   {
@@ -53,6 +53,24 @@ export const DEFAULT_BROKER_URL =
 
 const BROKER_LS_KEY = "mqtt.brokerUrl";
 const BROKER_CUSTOM_LS_KEY = "mqtt.brokerPresets.custom";
+
+// Sanity: scheme must be ws/wss, and ws:// is unusable on https:// pages.
+function isUsableBrokerUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "ws:" && u.protocol !== "wss:") return false;
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      u.protocol === "ws:"
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function loadCustomPresets(): BrokerPreset[] {
   if (typeof window === "undefined") return [];
@@ -136,7 +154,12 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(BROKER_LS_KEY);
-      if (stored) setBrokerUrlState(stored);
+      if (stored && isUsableBrokerUrl(stored)) {
+        setBrokerUrlState(stored);
+      } else if (stored) {
+        // Drop unusable values (e.g. ws:// while page is https://).
+        window.localStorage.removeItem(BROKER_LS_KEY);
+      }
     } catch {}
     setCustomPresets(loadCustomPresets());
   }, []);
@@ -174,11 +197,23 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     setTopicData({});
     setBucketCounts({});
 
-    const client = mqtt.connect(brokerUrl, {
-      keepalive: 60,
-      clean: true,
-      reconnectPeriod: 5000,
-    });
+    if (!isUsableBrokerUrl(brokerUrl)) {
+      // Don't even try — would throw or be blocked. Stay disconnected.
+      console.warn("[mqtt] unusable broker URL:", brokerUrl);
+      return;
+    }
+
+    let client: MqttClient;
+    try {
+      client = mqtt.connect(brokerUrl, {
+        keepalive: 60,
+        clean: true,
+        reconnectPeriod: 5000,
+      });
+    } catch (err) {
+      console.error("[mqtt] connect threw:", err);
+      return;
+    }
     clientRef.current = client;
 
     client.on("connect", () => {
@@ -186,7 +221,10 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
       client.subscribe("#");
     });
     client.on("close", () => setConnected(false));
-    client.on("error", () => setConnected(false));
+    client.on("error", (err) => {
+      console.warn("[mqtt] error:", err?.message ?? err);
+      setConnected(false);
+    });
 
     client.on("message", (topic, payload) => {
       const payloadStr = payload.toString();
@@ -225,7 +263,9 @@ export function MqttProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
-      client.end(true);
+      try {
+        client.end(true);
+      } catch {}
       if (clientRef.current === client) clientRef.current = null;
     };
   }, [brokerUrl]);

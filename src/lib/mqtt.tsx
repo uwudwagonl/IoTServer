@@ -39,7 +39,7 @@ export interface BrokerPreset {
 export const BROKER_PRESETS: BrokerPreset[] = [
   {
     label: "Raspberry Pi (tunnel)",
-    url: "wss://hosted-controllers-plus-texas.trycloudflare.com",
+    url: "wss://things-defense-christina-lands.trycloudflare.com",
   },
   { label: "Raspberry Pi (LAN)", url: "ws://10.252.74.225:9001" },
   {

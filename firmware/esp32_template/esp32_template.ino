@@ -5,10 +5,19 @@
 // No sensors — wire your own data into pub() in loop().
 // ============================================================================
 #include <WiFi.h>
-#include "esp_wpa2.h"
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <time.h>
+
+// Arduino-ESP32 3.x renamed the WPA2-Enterprise API. Use the new header
+// when it's available, fall back to the old one otherwise.
+#if __has_include("esp_eap_client.h")
+  #include "esp_eap_client.h"
+  #define HTL_EAP_NEW 1
+#else
+  #include "esp_wpa2.h"
+  #define HTL_EAP_NEW 0
+#endif
 
 // -------------------------- CONFIG ------------------------------------------
 // WiFi (HTLVB WPA2-Enterprise)
@@ -64,10 +73,17 @@ void connectWifi() {
   Serial.printf("WiFi: %s ", WIFI_SSID);
   WiFi.disconnect(true);
   WiFi.mode(WIFI_STA);
+#if HTL_EAP_NEW
+  esp_eap_client_set_identity((uint8_t*)WIFI_USER, strlen(WIFI_USER));
+  esp_eap_client_set_username((uint8_t*)WIFI_USER, strlen(WIFI_USER));
+  esp_eap_client_set_password((uint8_t*)WIFI_PASS, strlen(WIFI_PASS));
+  esp_wifi_sta_enterprise_enable();
+#else
   esp_wifi_sta_wpa2_ent_set_identity((uint8_t*)WIFI_USER, strlen(WIFI_USER));
   esp_wifi_sta_wpa2_ent_set_username((uint8_t*)WIFI_USER, strlen(WIFI_USER));
   esp_wifi_sta_wpa2_ent_set_password((uint8_t*)WIFI_PASS, strlen(WIFI_PASS));
   esp_wifi_sta_wpa2_ent_enable();
+#endif
   WiFi.begin(WIFI_SSID);
   while (WiFi.status() != WL_CONNECTED) { delay(400); Serial.print("."); }
   Serial.printf(" ok IP=%s RSSI=%d\n",
